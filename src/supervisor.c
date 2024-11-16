@@ -9,14 +9,7 @@
 #include <semaphore.h>
 
 #include "../include/circular_buffer.h"
-
-#define SHM_NAME "/shared_memory_3coloring"
-
-#define PERM 0600
-
-#define SEM_FREE "/sem_free"
-#define SEM_USED "/sem_used"
-#define SEM_MUTEX "/sem_mutex"
+#include "../include/utils.h"
 
 void usage_exit(void) {
   printf("supervisor [-n limit] [-w delay]\n");
@@ -24,7 +17,7 @@ void usage_exit(void) {
 }
 
 int main(int argc, char **argv) {
-  printf("Hello World\n");
+  printf("Hello Supervisor!\n");
 
   // limit is infinite if it remains a NULL pointer
   int *limit = NULL, delay = 0;
@@ -56,7 +49,7 @@ int main(int argc, char **argv) {
   int fd;
 
   // create shared memory
-  if ((fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, PERM)) == -1) {
+  if ((fd = shm_open(SHM_NAME, SHM_FLAGS, PERM)) == -1) {
     perror("shm_open");
     return EXIT_FAILURE;
   }
@@ -124,6 +117,27 @@ int main(int argc, char **argv) {
   // delay
   sleep(delay);
 
+  // for testing: read
+  int val = circ_buf_read(circ_buf_ptr);
+
+
+  printf("Read value: %d\n", val);
+
+  if (circ_buf_error != CIRC_BUF_SUCCESS) {
+      perror("circ_buf_read");
+      sem_unlink(SEM_FREE);
+
+      sem_close(sem_used);
+      sem_unlink(SEM_USED);
+
+
+      sem_close(sem_mutex);
+      sem_unlink(SEM_MUTEX);
+
+      shm_unlink(SHM_NAME);
+      close(fd);
+      return EXIT_FAILURE;
+  }
 
   // clean up
 
