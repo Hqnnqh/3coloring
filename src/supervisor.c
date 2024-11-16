@@ -6,8 +6,13 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#define SHM_NAME "shared_memory_3coloring"
-#define SHM_LEN 4096
+#define SHM_NAME "/shared_memory_3coloring"
+#define MAX_DATA (50)
+
+struct myshm {
+  unsigned int state;
+  unsigned int data[MAX_DATA];
+};
 
 void usage_exit(void) {
   printf("supervisor [-n limit] [-w delay]\n");
@@ -47,47 +52,35 @@ int main(int argc, char **argv) {
   int fd;
 
   // create shared memory
-  if ((fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0660)) == -1) {
+  if ((fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600)) == -1) {
     perror("shm_open");
     return EXIT_FAILURE;
   }
 
   // set size of shared memory
-  if (ftruncate(fd, SHM_LEN) == -1) {
+  if (ftruncate(fd, sizeof(struct myshm)) == -1) {
     perror("ftruncate");
     shm_unlink(SHM_NAME);
     close(fd);
     return EXIT_FAILURE;
   }
 
-  // get file information
-  struct stat shmstat;
-  if (fstat(fd, &shmstat) == -1) {
-    perror("fstat");
-    shm_unlink(SHM_NAME);
-    close(fd);
-    return EXIT_FAILURE;
-  }
-
   // map shared memory
-  void *shmptr =
-      mmap(NULL, shmstat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  struct myshm *shmptr;
+  shmptr = mmap(NULL, sizeof(struct myshm), PROT_READ | PROT_WRITE, MAP_SHARED,
+                fd, 0);
 
-  if (shmptr == NULL) {
+  if (shmptr == MAP_FAILED) {
     perror("mmap");
     shm_unlink(SHM_NAME);
     close(fd);
     return EXIT_FAILURE;
   }
 
-
-
-
-
   // clean up
 
   // unmap shm
-  if (munmap(shmptr, SHM_LEN) == -1) {
+  if (munmap(shmptr, sizeof(struct myshm)) == -1) {
     perror("munmap");
     shm_unlink(SHM_NAME);
     close(fd);
