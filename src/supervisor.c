@@ -6,8 +6,18 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include <semaphore.h>
+
 #define SHM_NAME "/shared_memory_3coloring"
 #define MAX_DATA (50)
+
+#define PERM 0600
+
+#define SEM_FREE "/sem_free"
+#define SEM_USED "/sem_used"
+#define SEM_MUTEX "/sem_mutex"
+
+#define BUFFER_SIZE 20
 
 struct myshm {
   unsigned int state;
@@ -52,7 +62,7 @@ int main(int argc, char **argv) {
   int fd;
 
   // create shared memory
-  if ((fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600)) == -1) {
+  if ((fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, PERM)) == -1) {
     perror("shm_open");
     return EXIT_FAILURE;
   }
@@ -77,7 +87,113 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  // set up semaphores
+
+  sem_t *sem_free, *sem_used, *sem_mutex;
+  if ((sem_free = sem_open(SEM_FREE, O_CREAT, PERM, BUFFER_SIZE)) ==
+      SEM_FAILED) {
+    perror("sem_open sem_free");
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  if ((sem_used = sem_open(SEM_USED, O_CREAT, PERM, 0)) == SEM_FAILED) {
+    perror("sem_open sem_used");
+    sem_close(sem_free);
+    sem_unlink(SEM_FREE);
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  if ((sem_mutex = sem_open(SEM_MUTEX, O_CREAT, PERM, 1)) == SEM_FAILED) {
+    perror("sem_open sem_mutex");
+    sem_close(sem_free);
+    sem_unlink(SEM_FREE);
+
+    sem_close(sem_used);
+    sem_unlink(SEM_USED);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
   // clean up
+
+  // close sem_free
+  if (sem_close(sem_free) == -1) {
+    perror("sem_close sem_free");
+    sem_unlink(SEM_FREE);
+
+    sem_close(sem_used);
+    sem_unlink(SEM_USED);
+
+
+    sem_close(sem_mutex);
+    sem_unlink(SEM_MUTEX);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  // unlink sem_free
+  if (sem_unlink(SEM_FREE) == -1) {
+    perror("sem_unlink sem_free");
+    sem_close(sem_used);
+    sem_unlink(SEM_USED);
+
+    sem_close(sem_mutex);
+    sem_unlink(SEM_MUTEX);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  // close sem_used
+  if (sem_close(sem_used) == -1) {
+    perror("sem_close sem_used");
+    sem_unlink(SEM_USED);
+
+    sem_close(sem_mutex);
+    sem_unlink(SEM_MUTEX);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  // unlink sem_used
+  if (sem_unlink(SEM_USED) == -1) {
+    perror("sem_close sem_used");
+    sem_close(sem_mutex);
+    sem_unlink(SEM_MUTEX);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  // close sem_mutex
+  if (sem_close(sem_mutex) == -1) {
+    perror("sem_close sem_mutex");
+    sem_unlink(SEM_MUTEX);
+
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
+
+  // unlink sem_mutex
+  if (sem_unlink(SEM_MUTEX) == -1) {
+    perror("sem_close sem_used");
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
+  }
 
   // unmap shm
   if (munmap(shmptr, sizeof(struct myshm)) == -1) {
