@@ -8,21 +8,15 @@
 
 #include <semaphore.h>
 
+#include "../include/circular_buffer.h"
+
 #define SHM_NAME "/shared_memory_3coloring"
-#define MAX_DATA (50)
 
 #define PERM 0600
 
 #define SEM_FREE "/sem_free"
 #define SEM_USED "/sem_used"
 #define SEM_MUTEX "/sem_mutex"
-
-#define BUFFER_SIZE 20
-
-struct myshm {
-  unsigned int state;
-  unsigned int data[MAX_DATA];
-};
 
 void usage_exit(void) {
   printf("supervisor [-n limit] [-w delay]\n");
@@ -32,9 +26,9 @@ void usage_exit(void) {
 int main(int argc, char **argv) {
   printf("Hello World\n");
 
-  // delay is infinite if it remains a NULL pointer
-  int limit = 0, *delay = NULL;
-  static int temp_delay;
+  // limit is infinite if it remains a NULL pointer
+  int *limit = NULL, delay = 0;
+  static int temp_limit;
   int c;
 
   char *endptr;
@@ -42,17 +36,17 @@ int main(int argc, char **argv) {
   while ((c = getopt(argc, argv, "n:w:")) != -1) {
     switch (c) {
     case 'n':
-      limit = strtol(optarg, &endptr, 10);
-      if (endptr == optarg || *endptr != '\0' || limit < 0) {
+      temp_limit = strtol(optarg, &endptr, 10);
+      if (endptr == optarg || *endptr != '\0' || temp_limit < 0) {
         usage_exit();
       }
+      limit = &temp_limit;
       break;
     case 'w':
-      temp_delay = strtol(optarg, &endptr, 10);
-      if (endptr == optarg || *endptr != '\0' || temp_delay < 0) {
+      delay = strtol(optarg, &endptr, 10);
+      if (endptr == optarg || *endptr != '\0' || delay < 0) {
         usage_exit();
       }
-      delay = &temp_delay;
       break;
     case '?':
       usage_exit();
@@ -68,7 +62,7 @@ int main(int argc, char **argv) {
   }
 
   // set size of shared memory
-  if (ftruncate(fd, sizeof(struct myshm)) == -1) {
+  if (ftruncate(fd, sizeof(struct circ_buf)) == -1) {
     perror("ftruncate");
     shm_unlink(SHM_NAME);
     close(fd);
@@ -76,11 +70,11 @@ int main(int argc, char **argv) {
   }
 
   // map shared memory
-  struct myshm *shmptr;
-  shmptr = mmap(NULL, sizeof(struct myshm), PROT_READ | PROT_WRITE, MAP_SHARED,
+  struct circ_buf *circ_buf_ptr;
+  circ_buf_ptr = mmap(NULL, sizeof(struct circ_buf), PROT_READ | PROT_WRITE, MAP_SHARED,
                 fd, 0);
 
-  if (shmptr == MAP_FAILED) {
+  if (circ_buf_ptr == MAP_FAILED) {
     perror("mmap");
     shm_unlink(SHM_NAME);
     close(fd);
@@ -119,6 +113,17 @@ int main(int argc, char **argv) {
     close(fd);
     return EXIT_FAILURE;
   }
+
+  // initialize circular buffer
+  used_slots = sem_used;
+  free_slots = sem_free;
+  mutex = sem_mutex;
+  circ_buf_ptr->read_pos = 0;
+  circ_buf_ptr->write_pos = 0;
+
+  // delay
+  sleep(delay);
+
 
   // clean up
 
@@ -196,7 +201,7 @@ int main(int argc, char **argv) {
   }
 
   // unmap shm
-  if (munmap(shmptr, sizeof(struct myshm)) == -1) {
+  if (munmap(circ_buf_ptr, sizeof(struct circ_buf)) == -1) {
     perror("munmap");
     shm_unlink(SHM_NAME);
     close(fd);
