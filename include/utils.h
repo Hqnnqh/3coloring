@@ -8,3 +8,16 @@
 #define SEM_MUTEX "/sem_mutex_3coloring"
 
 #define PERM 0600
+
+typedef struct {
+    unsigned int vertex1;
+    unsigned int vertex2;
+} edge_t;
+
+typedef struct {
+   edge_t *edges;
+   unsigned int num_edges;
+   unsigned int num_vertices;
+} graph_t;
+
+void free_graph(graph_t *graph);
