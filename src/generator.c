@@ -25,6 +25,7 @@ graph_t parse(int argc, char **argv) {
 
   graph_t graph;
   graph.edges = NULL;
+  graph.vertices = NULL;
   graph.num_edges = 0;
   graph.num_vertices = 0;
 
@@ -47,8 +48,8 @@ graph_t parse(int argc, char **argv) {
       usage_exit();
     }
 
-    int vertex2 = strtol(dash+1, &endptr, 10);
-    if (endptr == dash+1 || *endptr != '\0' || vertex2 < 0 ||
+    int vertex2 = strtol(dash + 1, &endptr, 10);
+    if (endptr == dash + 1 || *endptr != '\0' || vertex2 < 0 ||
         vertex1 == vertex2) {
       printf("vertex 2 invalid: %d.\n", vertex2);
       usage_exit();
@@ -64,20 +65,25 @@ graph_t parse(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
     graph.edges = new_edges;
-    graph.edges[graph.num_edges - 1].vertex1 = vertex1;
-    graph.edges[graph.num_edges - 1].vertex2 = vertex2;
+    graph.edges[graph.num_edges - 1].vertex1_index = vertex1;
+    graph.edges[graph.num_edges - 1].vertex2_index = vertex2;
 
     // update vertices
     if (graph.num_vertices < vertex1 + 1) {
-        graph.num_vertices = vertex1 + 1;
+      graph.num_vertices = vertex1 + 1;
     }
     if (graph.num_vertices < vertex2 + 1) {
-        graph.num_vertices = vertex2 + 1;
+      graph.num_vertices = vertex2 + 1;
     }
   }
 
-  // check for validity of graph
+  // initialize vertices
+  graph.vertices = malloc(graph.num_vertices * sizeof(vertex_t));
 
+  if (graph.vertices == NULL) {
+    perror("malloc vertices");
+    exit(EXIT_FAILURE);
+  }
 
   return graph;
 }
@@ -85,16 +91,17 @@ graph_t parse(int argc, char **argv) {
 int main(int argc, char **argv) {
   printf("Hello Generator!\n");
 
+  // set random seed
+  srandom(getpid());
+
   graph_t graph = parse(argc, argv);
-  // print out all parsed edges
-  for (int i = 0; i < graph.num_edges; i++) {
-    printf("edge: %d-%d\n", graph.edges[i].vertex1, graph.edges[i].vertex2);
+
+  // assign random colours to vertices
+  for (int i = 0; i < graph.num_vertices; i++) {
+    graph.vertices[i] = get_random_vertex();
   }
-  printf("num vertices: %d, num edges: %d\n", graph.num_vertices, graph.num_edges);
 
-  // dummy implementation for testing
   int fd;
-
   // create shared memory
   if ((fd = shm_open(SHM_NAME, SHM_FLAGS, PERM)) == -1) {
     perror("shm_open");
@@ -122,7 +129,6 @@ int main(int argc, char **argv) {
   }
 
   // set up semaphores
-
   sem_t *sem_free, *sem_used, *sem_mutex;
   if ((sem_free = sem_open(SEM_FREE, O_CREAT, PERM, BUFFER_SIZE)) ==
       SEM_FAILED) {
@@ -161,7 +167,10 @@ int main(int argc, char **argv) {
   circ_buf_ptr->read_pos = 0;
   circ_buf_ptr->write_pos = 0;
 
-  circ_buf_write(circ_buf_ptr, 3);
+  // attempt to solve graph
+
+
+
 
   // clean up
 

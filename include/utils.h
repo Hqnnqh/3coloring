@@ -9,15 +9,25 @@
 
 #define PERM 0600
 
+typedef enum {
+    RED,
+    BLUE,
+    GREEN,
+} vertex_t;
+
 typedef struct {
-    unsigned int vertex1;
-    unsigned int vertex2;
+    unsigned int vertex1_index;
+    unsigned int vertex2_index;
 } edge_t;
 
 typedef struct {
+   vertex_t *vertices;
    edge_t *edges;
    unsigned int num_edges;
    unsigned int num_vertices;
+
 } graph_t;
 
 void free_graph(graph_t *graph);
+
+vertex_t get_random_vertex(void);
