@@ -1,11 +1,6 @@
 #include "../include/utils.h"
 #include <stdlib.h>
 
-void free_graph(graph_t* graph) {
-    free(graph->edges);
-    free(graph->vertices);
-}
-
 // assign random color to vertex
 vertex_t get_random_vertex(void) {
     int lower = 0;

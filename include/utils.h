@@ -20,14 +20,5 @@ typedef struct {
     unsigned int vertex2_index;
 } edge_t;
 
-typedef struct {
-   vertex_t *vertices;
-   edge_t *edges;
-   unsigned int num_edges;
-   unsigned int num_vertices;
-
-} graph_t;
-
-void free_graph(graph_t *graph);
 
 vertex_t get_random_vertex(void);

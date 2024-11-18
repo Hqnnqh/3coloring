@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,23 +13,21 @@
 #include "../include/circular_buffer.h"
 #include "../include/utils.h"
 
+#define DISCARD_MANY_EDGES true
+
 void usage_exit(void) {
   printf("generator EDGE1...\n");
   exit(EXIT_FAILURE);
 }
 
-graph_t parse(int argc, char **argv) {
+// Parse the graph's edges and return the number of vertices.
+int parse(int argc, char **argv, edge_t edges[]) {
   if (argc < 2) {
     printf("no edges given\n");
     usage_exit();
   }
 
-  graph_t graph;
-  graph.edges = NULL;
-  graph.vertices = NULL;
-  graph.num_edges = 0;
-  graph.num_vertices = 0;
-
+  int num_vertices = 0;
   char *endptr;
 
   for (int i = 1; i < argc; i++) {
@@ -56,36 +55,19 @@ graph_t parse(int argc, char **argv) {
     }
 
     // add edge to graph
-    graph.num_edges++;
-    edge_t *new_edges = realloc(graph.edges, graph.num_edges * sizeof(edge_t));
-
-    if (new_edges == NULL) {
-      perror("realloc edges");
-      free_graph(&graph);
-      exit(EXIT_FAILURE);
-    }
-    graph.edges = new_edges;
-    graph.edges[graph.num_edges - 1].vertex1_index = vertex1;
-    graph.edges[graph.num_edges - 1].vertex2_index = vertex2;
+    edges[i - 1].vertex1_index = vertex1;
+    edges[i - 1].vertex2_index = vertex2;
 
     // update vertices
-    if (graph.num_vertices < vertex1 + 1) {
-      graph.num_vertices = vertex1 + 1;
+    if (num_vertices < vertex1 + 1) {
+      num_vertices = vertex1 + 1;
     }
-    if (graph.num_vertices < vertex2 + 1) {
-      graph.num_vertices = vertex2 + 1;
+    if (num_vertices < vertex2 + 1) {
+      num_vertices = vertex2 + 1;
     }
   }
 
-  // initialize vertices
-  graph.vertices = malloc(graph.num_vertices * sizeof(vertex_t));
-
-  if (graph.vertices == NULL) {
-    perror("malloc vertices");
-    exit(EXIT_FAILURE);
-  }
-
-  return graph;
+  return num_vertices;
 }
 
 int main(int argc, char **argv) {
@@ -94,11 +76,12 @@ int main(int argc, char **argv) {
   // set random seed
   srandom(getpid());
 
-  graph_t graph = parse(argc, argv);
+  edge_t edges[argc - 1];
 
-  // assign random colours to vertices
-  for (int i = 0; i < graph.num_vertices; i++) {
-    graph.vertices[i] = get_random_vertex();
+  int num_vertices = parse(argc, argv, edges);
+
+  if (num_vertices == 0) {
+    usage_exit();
   }
 
   int fd;
@@ -168,6 +151,45 @@ int main(int argc, char **argv) {
   circ_buf_ptr->write_pos = 0;
 
   // attempt to solve graph
+  bool terminate = false;
+
+  edge_t removed[argc - 1];
+  int num_removed;
+
+  vertex_t vertices[num_vertices];
+
+  while(!terminate) {
+      num_removed = 0;
+
+      // generate random colours for vertices
+      for (int i = 0; i < num_vertices; i++) {
+        vertices[i] = get_random_vertex();
+        printf("i: %d, c: %d\n", i, vertices[i]);
+      }
+
+      // loop through each edge
+      for (int i = 0; i < argc - 1; i++) {
+        edge_t current = edges[i];
+
+        // check if both vertices are the same
+        if (vertices[current.vertex1_index] == vertices[current.vertex2_index]) {
+          removed[i] = current;
+          num_removed++;
+        }
+      }
+
+      // write solution to circular buffer
+      if (!DISCARD_MANY_EDGES || num_removed <= 8) {
+          printf("current solution: ");
+
+          for(int i = 0; i < num_removed; i++) {
+              printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
+          }
+          printf("\n");
+          printf("\n");
+      }
+
+  }
 
 
 
