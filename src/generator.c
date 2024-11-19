@@ -100,11 +100,10 @@ int main(int argc, char **argv) {
   }
 
   // map shared memory
-  struct circ_buf *circ_buf_ptr;
-  circ_buf_ptr = mmap(NULL, sizeof(struct circ_buf), PROT_READ | PROT_WRITE,
-                      MAP_SHARED, fd, 0);
+  shm_t *shm;
+  shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-  if (circ_buf_ptr == MAP_FAILED) {
+  if (shm == MAP_FAILED) {
     perror("mmap");
     shm_unlink(SHM_NAME);
     close(fd);
@@ -143,56 +142,66 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  // initialize circular buffer
+  // initialize semaphores
   used_slots = sem_used;
   free_slots = sem_free;
   mutex = sem_mutex;
-  circ_buf_ptr->read_pos = 0;
-  circ_buf_ptr->write_pos = 0;
 
-  // attempt to solve graph
-  bool terminate = false;
-
+  // todo: replace with max 8 edges to be removed
   edge_t removed[argc - 1];
   int num_removed;
 
   vertex_t vertices[num_vertices];
 
-  while(!terminate) {
-      num_removed = 0;
+  // for testing: write value to circular buffer
+  circ_buf_write(&shm->buffer, 5);
 
-      // generate random colours for vertices
-      for (int i = 0; i < num_vertices; i++) {
-        vertices[i] = get_random_vertex();
-        printf("i: %d, c: %d\n", i, vertices[i]);
-      }
+  if (circ_buf_error != CIRC_BUF_SUCCESS) {
+    perror("circ_buf_write");
+    sem_unlink(SEM_FREE);
 
-      // loop through each edge
-      for (int i = 0; i < argc - 1; i++) {
-        edge_t current = edges[i];
+    sem_close(sem_used);
+    sem_unlink(SEM_USED);
 
-        // check if both vertices are the same
-        if (vertices[current.vertex1_index] == vertices[current.vertex2_index]) {
-          removed[i] = current;
-          num_removed++;
-        }
-      }
+    sem_close(sem_mutex);
+    sem_unlink(SEM_MUTEX);
 
-      // write solution to circular buffer
-      if (!DISCARD_MANY_EDGES || num_removed <= 8) {
-          printf("current solution: ");
-
-          for(int i = 0; i < num_removed; i++) {
-              printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
-          }
-          printf("\n");
-          printf("\n");
-      }
-
+    shm_unlink(SHM_NAME);
+    close(fd);
+    return EXIT_FAILURE;
   }
+  printf("successfully wrote value...\n");
+  while (!shm->terminate) {
+    num_removed = 0;
 
+    // generate random colours for vertices
+    for (int i = 0; i < num_vertices; i++) {
+      vertices[i] = get_random_vertex();
+      printf("i: %d, c: %d\n", i, vertices[i]);
+    }
 
+    // loop through each edge
+    for (int i = 0; i < argc - 1; i++) {
+      edge_t current = edges[i];
 
+      // check if both vertices are the same
+      if (vertices[current.vertex1_index] == vertices[current.vertex2_index]) {
+        removed[i] = current;
+        num_removed++;
+      }
+    }
+
+    // write solution to circular buffer
+    if (!DISCARD_MANY_EDGES || num_removed <= 8) {
+      printf("current solution: ");
+
+      for (int i = 0; i < num_removed; i++) {
+        printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
+      }
+      printf("\n");
+      printf("\n");
+    }
+  }
 
   // clean up
 
@@ -221,7 +230,7 @@ int main(int argc, char **argv) {
   }
 
   // unmap shm
-  if (munmap(circ_buf_ptr, sizeof(struct circ_buf)) == -1) {
+  if (munmap(shm, sizeof(shm_t)) == -1) {
     perror("munmap");
     close(fd);
     return EXIT_FAILURE;

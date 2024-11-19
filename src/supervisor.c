@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
   }
 
   // set size of shared memory
-  if (ftruncate(fd, sizeof(struct circ_buf)) == -1) {
+  if (ftruncate(fd, sizeof(shm_t)) == -1) {
     perror("ftruncate");
     shm_unlink(SHM_NAME);
     close(fd);
@@ -63,11 +63,11 @@ int main(int argc, char **argv) {
   }
 
   // map shared memory
-  struct circ_buf *circ_buf_ptr;
-  circ_buf_ptr = mmap(NULL, sizeof(struct circ_buf), PROT_READ | PROT_WRITE, MAP_SHARED,
+  shm_t *shm;
+  shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED,
                 fd, 0);
 
-  if (circ_buf_ptr == MAP_FAILED) {
+  if (shm == MAP_FAILED) {
     perror("mmap");
     shm_unlink(SHM_NAME);
     close(fd);
@@ -107,21 +107,21 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  // initialize shared memory
+  shm->terminate = false;
+
   // initialize circular buffer
   used_slots = sem_used;
   free_slots = sem_free;
   mutex = sem_mutex;
-  circ_buf_ptr->read_pos = 0;
-  circ_buf_ptr->write_pos = 0;
+  shm->buffer.read_pos = 0;
+  shm->buffer.write_pos = 0;
 
   // delay
   sleep(delay);
 
-  // for testing: read
-  int val = circ_buf_read(circ_buf_ptr);
-
-
-  printf("Read value: %d\n", val);
+  // for testing: read value from circular buffer
+  int val = circ_buf_read(&shm->buffer);
 
   if (circ_buf_error != CIRC_BUF_SUCCESS) {
       perror("circ_buf_read");
@@ -138,6 +138,8 @@ int main(int argc, char **argv) {
       close(fd);
       return EXIT_FAILURE;
   }
+
+  printf("read: %d\n", val);
 
   // clean up
 
@@ -215,7 +217,7 @@ int main(int argc, char **argv) {
   }
 
   // unmap shm
-  if (munmap(circ_buf_ptr, sizeof(struct circ_buf)) == -1) {
+  if (munmap(shm, sizeof(shm_t)) == -1) {
     perror("munmap");
     shm_unlink(SHM_NAME);
     close(fd);

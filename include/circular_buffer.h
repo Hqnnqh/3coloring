@@ -3,7 +3,6 @@
 #include <semaphore.h>
 
 #define BUFFER_SIZE 20
-#define MAX_EDGES 8
 
 #define CIRC_BUF_SUCCESS 0
 #define CIRC_BUF_ERR_SEM_WAIT -1

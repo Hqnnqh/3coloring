@@ -1,5 +1,8 @@
 #pragma once
 
+#include "circular_buffer.h"
+#include <stdbool.h>
+
 #define SHM_NAME "/shared_memory_3coloring"
 #define SHM_FLAGS O_CREAT | O_RDWR
 
@@ -20,5 +23,9 @@ typedef struct {
     unsigned int vertex2_index;
 } edge_t;
 
-
 vertex_t get_random_vertex(void);
+
+typedef struct {
+    bool terminate;
+    struct circ_buf buffer;
+} shm_t;
