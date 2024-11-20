@@ -1,6 +1,5 @@
 #include "../include/circular_buffer.h"
 #include <semaphore.h>
-#include <stdio.h>
 
 int circ_buf_error = CIRC_BUF_SUCCESS;
 sem_t *free_slots, *used_slots, *mutex;

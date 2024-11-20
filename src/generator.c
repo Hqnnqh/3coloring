@@ -159,7 +159,6 @@ int main(int argc, char **argv) {
     // generate random colours for vertices
     for (int i = 0; i < num_vertices; i++) {
       vertices[i] = get_random_vertex();
-      // printf("i: %d, c: %d\n", i, vertices[i]);
     }
 
     // loop through each edge
@@ -175,15 +174,11 @@ int main(int argc, char **argv) {
 
     // write solution to circular buffer
     if (!DISCARD_MANY_EDGES || num_removed <= MAX_EDGES) {
-      // printf("current solution: ");
       solution_t current_solution;
       current_solution.num_deges = num_removed;
       for (int i = 0; i < num_removed; i++) {
-        // printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
         current_solution.edges[i] = removed[i];
       }
-      // printf("\n");
-      // printf("\n");
 
       circ_buf_write(&shm->buffer, current_solution);
 
@@ -201,7 +196,6 @@ int main(int argc, char **argv) {
         close(fd);
         return EXIT_FAILURE;
       }
-      // printf("successfully wrote value...\n");
     }
   }
 
