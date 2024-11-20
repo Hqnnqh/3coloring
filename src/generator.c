@@ -71,8 +71,6 @@ int parse(int argc, char **argv, edge_t edges[]) {
 }
 
 int main(int argc, char **argv) {
-  printf("Hello Generator!\n");
-
   // set random seed
   srandom(getpid());
 
@@ -86,7 +84,7 @@ int main(int argc, char **argv) {
 
   int fd;
   // create shared memory
-  if ((fd = shm_open(SHM_NAME, SHM_FLAGS, PERM)) == -1) {
+  if ((fd = shm_open(SHM_NAME, O_RDWR, PERM)) == -1) {
     perror("shm_open");
     return EXIT_FAILURE;
   }
