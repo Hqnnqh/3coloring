@@ -64,8 +64,7 @@ int main(int argc, char **argv) {
 
   // map shared memory
   shm_t *shm;
-  shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED,
-                fd, 0);
+  shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
   if (shm == MAP_FAILED) {
     perror("mmap");
@@ -120,16 +119,26 @@ int main(int argc, char **argv) {
   // delay
   sleep(delay);
 
-  // for testing: read value from circular buffer
-  int val = circ_buf_read(&shm->buffer);
+  // smallest number of edges
+  int best_solution = -1;
+  int num_solution = 0;
 
-  if (circ_buf_error != CIRC_BUF_SUCCESS) {
+  while (!shm->terminate) {
+
+      if (limit && num_solution == *limit) {
+          shm->terminate = true;
+          printf("The graph might not be 3 colorable, best solution removes %d edges.\n", best_solution);
+          break;
+      }
+
+    solution_t val = circ_buf_read(&shm->buffer);
+
+    if (circ_buf_error != CIRC_BUF_SUCCESS) {
       perror("circ_buf_read");
       sem_unlink(SEM_FREE);
 
       sem_close(sem_used);
       sem_unlink(SEM_USED);
-
 
       sem_close(sem_mutex);
       sem_unlink(SEM_MUTEX);
@@ -137,9 +146,25 @@ int main(int argc, char **argv) {
       shm_unlink(SHM_NAME);
       close(fd);
       return EXIT_FAILURE;
-  }
+    }
+    num_solution++;
 
-  printf("read: %d\n", val);
+    if (val.num_deges == 0) {
+      shm->terminate = true;
+      printf("The graph is 3-colorable!\n");
+      break;
+    }
+
+    if (best_solution == -1 || val.num_deges < best_solution) {
+      best_solution = val.num_deges;
+      fprintf(stderr, "new solution: ");
+      for (int i = 0; i < val.num_deges; i++) {
+        fprintf(stderr, "%d-%d ", val.edges[i].vertex1_index,
+               val.edges[i].vertex2_index);
+      }
+      fprintf(stderr, "\n");
+    }
+  }
 
   // clean up
 
@@ -150,7 +175,6 @@ int main(int argc, char **argv) {
 
     sem_close(sem_used);
     sem_unlink(SEM_USED);
-
 
     sem_close(sem_mutex);
     sem_unlink(SEM_MUTEX);

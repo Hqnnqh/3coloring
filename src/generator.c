@@ -153,31 +153,13 @@ int main(int argc, char **argv) {
 
   vertex_t vertices[num_vertices];
 
-  // for testing: write value to circular buffer
-  circ_buf_write(&shm->buffer, 5);
-
-  if (circ_buf_error != CIRC_BUF_SUCCESS) {
-    perror("circ_buf_write");
-    sem_unlink(SEM_FREE);
-
-    sem_close(sem_used);
-    sem_unlink(SEM_USED);
-
-    sem_close(sem_mutex);
-    sem_unlink(SEM_MUTEX);
-
-    shm_unlink(SHM_NAME);
-    close(fd);
-    return EXIT_FAILURE;
-  }
-  printf("successfully wrote value...\n");
   while (!shm->terminate) {
     num_removed = 0;
 
     // generate random colours for vertices
     for (int i = 0; i < num_vertices; i++) {
       vertices[i] = get_random_vertex();
-      printf("i: %d, c: %d\n", i, vertices[i]);
+      // printf("i: %d, c: %d\n", i, vertices[i]);
     }
 
     // loop through each edge
@@ -186,20 +168,40 @@ int main(int argc, char **argv) {
 
       // check if both vertices are the same
       if (vertices[current.vertex1_index] == vertices[current.vertex2_index]) {
-        removed[i] = current;
+        removed[num_removed] = current;
         num_removed++;
       }
     }
 
     // write solution to circular buffer
-    if (!DISCARD_MANY_EDGES || num_removed <= 8) {
-      printf("current solution: ");
-
+    if (!DISCARD_MANY_EDGES || num_removed <= MAX_EDGES) {
+      // printf("current solution: ");
+      solution_t current_solution;
+      current_solution.num_deges = num_removed;
       for (int i = 0; i < num_removed; i++) {
-        printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
+        // printf("%d-%d,", removed[i].vertex1_index, removed[i].vertex2_index);
+        current_solution.edges[i] = removed[i];
       }
-      printf("\n");
-      printf("\n");
+      // printf("\n");
+      // printf("\n");
+
+      circ_buf_write(&shm->buffer, current_solution);
+
+      if (circ_buf_error != CIRC_BUF_SUCCESS) {
+        perror("circ_buf_write");
+        sem_unlink(SEM_FREE);
+
+        sem_close(sem_used);
+        sem_unlink(SEM_USED);
+
+        sem_close(sem_mutex);
+        sem_unlink(SEM_MUTEX);
+
+        shm_unlink(SHM_NAME);
+        close(fd);
+        return EXIT_FAILURE;
+      }
+      // printf("successfully wrote value...\n");
     }
   }
 

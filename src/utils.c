@@ -1,4 +1,4 @@
-#include "../include/utils.h"
+#include "../include/circular_buffer.h"
 #include <stdlib.h>
 
 // assign random color to vertex

@@ -1,11 +1,11 @@
 #include "../include/circular_buffer.h"
 #include <semaphore.h>
+#include <stdio.h>
 
 int circ_buf_error = CIRC_BUF_SUCCESS;
 sem_t *free_slots, *used_slots, *mutex;
 
-
-void circ_buf_write(struct circ_buf *cb, int val) {
+void circ_buf_write(struct circ_buf *cb, solution_t val) {
     if (!free_slots || !mutex || sem_wait(free_slots) == -1 || sem_wait(mutex) == -1) {
         circ_buf_error = CIRC_BUF_ERR_SEM_WAIT;
         return;
@@ -22,17 +22,22 @@ void circ_buf_write(struct circ_buf *cb, int val) {
     cb->write_pos %= BUFFER_SIZE;
 }
 
-int circ_buf_read(struct circ_buf *cb) {
+// Attempt to read new solution. Returns solution with num_edges = -1 on error and sets error.
+solution_t circ_buf_read(struct circ_buf *cb) {
     if (!used_slots || sem_wait(used_slots)) {
         circ_buf_error = CIRC_BUF_ERR_SEM_WAIT;
-        return -1;
+        solution_t invalid;
+        invalid.num_deges = -1;
+        return invalid;
     }
 
-    int val = cb->buffer[cb->read_pos];
+    solution_t val = cb->buffer[cb->read_pos];
 
     if (!used_slots || sem_post(free_slots)) {
         circ_buf_error = CIRC_BUF_ERR_SEM_POST;
-        return -1;
+        solution_t invalid;
+        invalid.num_deges = -1;
+        return invalid;
     }
 
     cb->read_pos += 1;

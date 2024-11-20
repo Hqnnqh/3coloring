@@ -1,6 +1,25 @@
 #pragma once
 
 #include <semaphore.h>
+#include <stdbool.h>
+
+#define MAX_EDGES 8
+
+typedef enum {
+    RED,
+    BLUE,
+    GREEN,
+} vertex_t;
+
+typedef struct {
+    unsigned int vertex1_index;
+    unsigned int vertex2_index;
+} edge_t;
+
+typedef struct {
+    edge_t edges[MAX_EDGES];
+    int num_deges;
+} solution_t;
 
 #define BUFFER_SIZE 20
 
@@ -12,11 +31,18 @@ extern int circ_buf_error;
 extern sem_t *free_slots, *used_slots, *mutex;
 
 struct circ_buf {
-  int buffer[BUFFER_SIZE];
+  solution_t buffer[BUFFER_SIZE];
   unsigned int write_pos;
   unsigned int read_pos;
 };
 
-void circ_buf_write(struct circ_buf *cb, int val);
+typedef struct {
+    bool terminate;
+    struct circ_buf buffer;
+} shm_t;
 
-int circ_buf_read(struct circ_buf *cb);
+vertex_t get_random_vertex(void);
+
+void circ_buf_write(struct circ_buf *cb, solution_t val);
+
+solution_t circ_buf_read(struct circ_buf *cb);
