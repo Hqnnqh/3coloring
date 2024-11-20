@@ -1,3 +1,5 @@
+#include <signal.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,6 +13,10 @@
 #include "../include/circular_buffer.h"
 #include "../include/utils.h"
 
+volatile sig_atomic_t quit = 0;
+
+void handle_signal(int signal) { quit = 1; }
+
 void usage_exit(void) {
   printf("supervisor [-n limit] [-w delay]\n");
   exit(EXIT_FAILURE);
@@ -18,6 +24,10 @@ void usage_exit(void) {
 
 int main(int argc, char **argv) {
   printf("Hello Supervisor!\n");
+
+  struct sigaction sa = {.sa_handler = handle_signal};
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
 
   // limit is infinite if it remains a NULL pointer
   int *limit = NULL, delay = 0;
@@ -125,15 +135,21 @@ int main(int argc, char **argv) {
 
   while (!shm->terminate) {
 
-      if (limit && num_solution == *limit) {
-          shm->terminate = true;
-          printf("The graph might not be 3 colorable, best solution removes %d edges.\n", best_solution);
-          break;
-      }
+    if (limit && num_solution == *limit || quit) {
+      shm->terminate = true;
+      printf("The graph might not be 3 colorable, best solution removes %d "
+             "edges.\n",
+             best_solution);
+      break;
+    }
 
-    solution_t val = circ_buf_read(&shm->buffer);
+    solution_t val;
+    do {
+      errno = 0;
+      val = circ_buf_read(&shm->buffer);
+    } while (errno == EINTR);
 
-    if (circ_buf_error != CIRC_BUF_SUCCESS) {
+    if (circ_buf_error != CIRC_BUF_SUCCESS && errno) {
       perror("circ_buf_read");
       sem_unlink(SEM_FREE);
 
@@ -160,7 +176,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "new solution: ");
       for (int i = 0; i < val.num_deges; i++) {
         fprintf(stderr, "%d-%d ", val.edges[i].vertex1_index,
-               val.edges[i].vertex2_index);
+                val.edges[i].vertex2_index);
       }
       fprintf(stderr, "\n");
     }
